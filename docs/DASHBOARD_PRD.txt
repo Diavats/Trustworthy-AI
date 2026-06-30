@@ -1,0 +1,229 @@
+    DASHBOARD PRD + TRD  V2
+    Trustworthy AI Framework for Electrical Metrology
+    Multi-instrument · GNN · SHACL · SOSA · GUM-Compatible UQ
+    Build specification for Antigravity IDE  |  Project: blackbox ai - npl
+    Context for Antigravity — read before writing any code
+    This is a complete build spec for an AI agent in Antigravity IDE. The Python research pipeline is already built and tested. BUILD ONLY the Streamlit frontend (dashboard/app.py) that reads from the outputs/ CSV files. Never modify src/ or data/.
+
+    Project summary
+    •	Intern: Dia Vats  |  Supervisor: Dr. Paramita Guha  |  CSIR-NPL, New Delhi
+    •	Research paper: Development of Trustworthy AI Models/Framework for Electrical Metrology
+    •	Pipeline: 9 Python scripts (01–08 + run_all.py) producing 10 CSV/TTL output files
+    •	4 instrument types calibrated at CSIR-NPL: AC Current Source, Clamp Meter, HV Probe, HV Breakdown Tester
+    •	AI methods used: polynomial regression, jackknife+ conformal prediction, SHAP XAI, GCN autoencoder (GNN), tabular autoencoder, multi-task neural network
+    •	KG: 799 RDF triples, OWL/RDF + SOSA + PROV-O + QUDT + custom EMO ontology
+
+    Folder structure — VS Code project
+    VS Code folder name (exact): blackbox ai - npl
+    blackbox ai - npl/
+    ├── data/certificates/      ← PDF/ODT calibration certificates (input)
+    ├── outputs/                ← ALL FILES THE DASHBOARD READS
+    │   ├── calibration_data.csv        ← primary ML dataset (31 pts, 4 instruments)
+    │   ├── calibration_data_all.csv    ← all 6 instruments including Group B
+    │   ├── electrical_metrology.ttl    ← KG (799 triples)
+    │   ├── shacl_validation_report.txt ← SHACL validation output
+    │   ├── ml_results.csv              ← predictions + conformal intervals
+    │   ├── gum_comparison.csv          ← GUM vs AI UQ
+    │   ├── shap_values.csv             ← SHAP attributions
+    │   ├── gnn_results.csv             ← GNN anomaly scores
+    │   ├── autoencoder_results.csv     ← Autoencoder anomaly scores
+    │   ├── multitask_results.csv       ← Multi-task predictions
+    │   └── plots/                      ← pre-generated matplotlib figures
+    ├── src/                    ← Python pipeline (do not modify)
+    └── dashboard/              ← CREATE THIS FOLDER
+        ├── app.py              ← CREATE THIS FILE (main Streamlit app)
+        └── .streamlit/config.toml  ← CREATE: sets dark mode as default
+
+    Visual design specification
+    Theme — dark/light toggle, defaults to dark
+    Streamlit has built-in dark/light support. Create .streamlit/config.toml with theme defaulting to dark. Add a toggle button in sidebar to switch. This is the 'creative' design requirement.
+
+    dashboard/.streamlit/config.toml content
+    [theme]
+    base = 'dark'
+    primaryColor = '#2E86AB'
+    backgroundColor = '#0F1117'
+    secondaryBackgroundColor = '#1E2130'
+    textColor = '#E8EAF0'
+    font = 'sans serif'
+
+    Light mode override values (when user toggles)
+    [theme]  base='light'  primaryColor='#1F4E8B'  backgroundColor='#FFFFFF'
+            secondaryBackgroundColor='#F0F4F8'  textColor='#1F2937'
+
+    Colour palette (use these consistently)
+    Colour	Hex	Use for	
+    Navy	#1F4E8B	Headers, primary accents (light mode)	
+    Electric blue	#2E86AB	Primary interactive elements, charts	
+    Teal	#1D9E75	Success, SHACL passed, in-PI	
+    Amber	#EF9F27	GUM uncertainty bars, warnings	
+    Red	#E24B4A	Anomalies, violations, HV Breakdown Tester	
+    Purple	#7F77DD	AI/ML sections, novel contributions	
+
+    Creative element — instrument selector with live recalculation
+    •	In Section 3 (ML predictions), add a Streamlit slider: 'Enter a new current/voltage value'
+    •	When user moves slider → call model_bundle.pkl to predict ratio error for that value → show real-time GUM-formatted output below the chart
+    •	This makes the dashboard interactive, not just a static report viewer
+    •	Use st.slider for indicated value, st.selectbox for instrument type, st.metric for the live prediction result
+
+    Page layout
+    •	Sidebar (fixed): logo placeholder (colored rectangle, NOT NPL logo), navigation radio, pipeline status, theme toggle
+    •	Main area: 7 sections as Streamlit tabs (st.tabs) across the top
+    •	Footer (every page): 'Made by Dia Vats · CSIR-NPL Internship 2026 · Supervisor: Dr. Paramita Guha'  styled in small muted text
+    •	No NPL logo anywhere in the app
+
+    Data schemas — all CSV files
+    calibration_data.csv (primary — 31 rows, 4 instruments)
+    Column	Type	Meaning
+    cert_id	string	Certificate identifier
+    instrument	string	Instrument name
+    measurement_domain	string	current or voltage
+    indicated_value	float	Indicated/nominal value (A or kV)
+    measured_value	float	Actual measured value (A or kV)
+    coverage_factor_k	float	GUM coverage factor
+    expanded_uncertainty_pct	float	GUM expanded uncertainty U (%)
+    ratio_error_pct	float	(measured-indicated)/indicated × 100
+    standard_uncertainty_pct	float	u = U/k (%)
+    range_position	float	Normalised position in instrument range (0–1)
+
+    ml_results.csv
+    Column	Type	Meaning
+    ml_predicted_ratio_error_pct	float	Model predicted ratio error
+    conformal_lower/upper_95pct	float	95% conformal prediction interval bounds
+    conformal_halfwidth_pct	float	PI half-width — the 'ML uncertainty'
+    gum_expanded_U_pct	float	Traditional GUM expanded uncertainty U
+    loo_residual_pct	float	Leave-one-out residual (how hard this point was)
+
+    gnn_results.csv  |  autoencoder_results.csv
+    Column	Type	Meaning
+    gnn_anomaly_score	float	GNN reconstruction MSE — higher = more anomalous
+    gnn_is_anomaly	bool	True if score > 75th percentile threshold
+    ae_score	float	Autoencoder reconstruction MSE
+    ae_anomaly	bool	True if score > 75th percentile threshold
+
+    multitask_results.csv
+    Column	Type	Meaning
+    mt_pred_ratio_error_pct	float	Task 1: predicted ratio error
+    mt_pred_nongaussian	int	Task 2: 1=non-Gaussian (k>2.0), 0=Gaussian
+    mt_pred_uncertainty_class	string	Task 3: low/medium/high uncertainty class
+
+    Section specifications — 7 tabs
+    Tab 1 — Overview
+    •	Title: 'Trustworthy AI · Electrical Metrology · CSIR-NPL'
+    •	Animated hero: st.markdown with HTML — gradient header bar (#1F4E8B → #2E86AB) containing the title
+    •	4 metric cards (st.columns): Total calibration points (31), Instruments (4), KG triples (799), SHACL status (✓ Passed)
+    •	Instrument summary table: for each of 4 instruments show: n points, RE range, domain, date
+    •	Raw data viewer: st.dataframe of calibration_data.csv with st.download_button
+
+    Tab 2 — Knowledge graph
+    •	Plotly network graph of the KG (hardcoded node positions — see coordinates below)
+    •	Node colours: teal=entities/lab, purple=documents/events, amber=standards, blue=data points
+    •	On hover over nodes: show full label and key property values
+    •	Stats row: 799 triples, 4 ontologies (QUDT, PROV-O, SOSA, EMO), 6 instrument types in KG
+    •	SHACL validation panel: read shacl_validation_report.txt → show green ✓ if 'conforms' in text, else red with violations
+    •	st.expander 'Why SOSA?': explain that each CalibrationPoint is a sosa:Observation, standard is sosa:Sensor
+
+    Tab 3 — ML predictions + UQ (with live calculator)
+    •	Plotly interactive chart: x=indicated_value, y=ratio_error_pct, colour by instrument
+    •	Shaded band = 95% conformal prediction interval [conformal_lower, conformal_upper]
+    •	Dashed line = ml_predicted_ratio_error_pct
+    •	Annotate HV Breakdown Tester points with red markers, note '10–17% ratio error — anomaly zone'
+    •	LIVE CALCULATOR (the creative element): st.sidebar or st.columns with:
+    ◦	  st.selectbox: 'Select instrument'  (4 options)
+    ◦	  st.slider: 'Indicated value' (range depends on instrument selection)
+    ◦	  On change: load model_bundle.pkl, compute features, predict, show st.metric: 'Predicted ratio error: X.XXXX% ± Y.YYYY%'
+    ◦	  Show st.code block with GUM-formatted output string
+    •	ML results table: st.dataframe of ml_results.csv
+
+    Tab 4 — SHAP XAI analysis
+    •	Show shap_analysis.png (pre-generated) + st.image caption
+    •	Interactive bar chart (Plotly): mean |SHAP| per feature for each instrument separately
+    •	Key finding callout (st.info): 'Domain and instrument type dominate SHAP importance — confirming that systematic instrument-level effects outweigh within-instrument current/voltage variation'
+    •	SHAP values table: st.dataframe of shap_values.csv
+    •	st.expander 'Physical interpretation': explain what each SHAP direction means metrologically
+
+    Tab 5 — Anomaly detection (GNN + Autoencoder)
+    •	Split into two sub-columns: GNN results (left) | Autoencoder results (right)
+    •	Left — GNN: show gnn_anomaly.png + anomaly score scatter chart (Plotly), red line at threshold
+    •	Right — Autoencoder: show autoencoder_anomaly.png + ae_score chart
+    •	Bottom: combined anomaly table — merge gnn_results + autoencoder_results, show points flagged by BOTH methods in red
+    •	Finding callout: 'All 4 HV Breakdown Tester points flagged as anomalous by both methods independently — cross-method validation of the anomaly finding'
+    •	GNN architecture info box (st.expander): explain GCN layers, adjacency matrix, bottleneck
+
+    Tab 6 — Multi-task neural network
+    •	Show multitask_results.png (pre-generated)
+    •	Results summary table (3 rows): Task 1 MAE, Task 2 accuracy, Task 3 accuracy
+    •	Per-instrument breakdown: for each instrument show mean predicted ratio error vs true
+    •	Uncertainty class distribution: Plotly stacked bar chart of predicted vs true classes per instrument
+    •	Info box: 'Multi-task prediction: a single neural network pass gives metrologist all three answers — ratio error, distribution type, and uncertainty class'
+
+    Tab 7 — GUM comparison and validation
+    •	Title: 'Paper Table 2 + Figure 3'
+    •	Grouped bar chart: GUM U% vs Conformal PI width per calibration point, coloured by instrument
+    •	Scatter plot: GUM half-width vs conformal half-width, red dashed agreement line
+    •	GUM-formatted output table: for each point show 'RE = X% ± Y% (U, k≈2.0, 95%)'
+    •	Key finding (st.warning in amber): 'Wide conformal PI (±7%) driven by HV Breakdown Tester outliers. This is a feature, not a bug — the framework correctly identifies the low-accuracy instrument as the anomaly source.'
+    •	Download buttons: gum_comparison.csv, ml_results.csv
+
+    Sidebar and footer specification
+    Sidebar content
+    •	Logo placeholder: a st.markdown colored rectangle (no image, no NPL logo)
+    st.markdown('<div style="background:linear-gradient(135deg,#1F4E8B,#2E86AB);padding:16px;border-radius:8px;text-align:center;color:white;font-weight:500;">CSIR-NPL<br>Electrical Metrology Lab</div>',unsafe_allow_html=True)
+    •	Theme toggle: st.radio('Theme', ['🌙 Dark', '☀️ Light']) → write to st.session_state → reload config
+    •	Pipeline status: check if each CSV exists → ✓ or ✗ per file
+    •	'Regenerate pipeline' button → subprocess.run(['python','run_all.py'])
+
+    Footer (every page)
+    st.markdown('---')
+    st.markdown('<p style="text-align:center;font-size:12px;color:gray;">Made by <strong>Dia Vats</strong> &nbsp;·&nbsp; CSIR-NPL Internship 2026 &nbsp;·&nbsp; Supervisor: Dr. Paramita Guha &nbsp;·&nbsp; Framework: KG + XAI + GUM-UQ + GNN</p>',unsafe_allow_html=True)
+
+    Technical requirements
+    Files to create (2 files only)
+    •	dashboard/app.py — complete Streamlit application
+    •	dashboard/.streamlit/config.toml — dark mode default theme config
+
+    Data loading pattern
+    ROOT = Path(__file__).parent.parent  # goes up from dashboard/ to project root
+    OUTPUTS = ROOT / 'outputs'
+    @st.cache_data
+    def load_all():
+        d = {}
+        for name in ['calibration_data','ml_results','gum_comparison',
+                    'shap_values','gnn_results','autoencoder_results','multitask_results']:
+            try: d[name] = pd.read_csv(OUTPUTS / f'{name}.csv')
+            except: d[name] = None
+        return d
+
+    Live calculator — model loading
+    import joblib
+    @st.cache_resource
+    def load_model():
+        return joblib.load(OUTPUTS / 'model_bundle.pkl')
+
+    def predict_live(bundle, indicated, domain, instrument):
+        dm = {'current':0.0,'voltage':1.0}
+        im = {'AC High Current Source':0.0,'Clamp Meter':1/3,'HV Probe':2/3,'HV Breakdown Tester':1.0}
+        X = np.array([[indicated, dm[domain], im[instrument]]])
+        pred = bundle['model'].predict(X)[0]
+        return pred, bundle['q']   # prediction, PI half-width
+
+    KG network node positions for Tab 2
+    Node label	x	y	Colour	Type
+    National Standard	0.50	1.00	#1D9E75	Teal
+    Curr. Comparator	0.20	0.70	#EF9F27	Amber
+    Transfer Std. DMM	0.80	0.70	#EF9F27	Amber
+    Calibration Event	0.50	0.50	#3C3489	Purple
+    Env. Conditions	0.88	0.50	#EF9F27	Amber
+    CSIR-NPL	0.15	0.30	#1D9E75	Teal
+    Certificate	0.50	0.30	#3C3489	Purple
+    Instrument (DUT)	0.85	0.30	#1D9E75	Teal
+    Calibration Points (31)	0.50	0.10	#2E86AB	Blue
+
+    How to run
+    # From inside the 'blackbox ai - npl' folder:
+    streamlit run dashboard/app.py
+
+    Dependencies (in requirements.txt already)
+    •	streamlit==1.34.0  |  plotly==5.22.0  |  pandas==2.2.0  |  numpy==1.26.0  |  joblib==1.3.0
+
+    Made by Dia Vats · CSIR-NPL Internship 2026 · Supervisor: Dr. Paramita Guha · Feed to Antigravity to build dashboard/app.py
