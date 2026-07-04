@@ -21,3 +21,8 @@ Thumbs.db
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Installer files
+*.msix
+*.exe
+*.msi
